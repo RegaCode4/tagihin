@@ -33,7 +33,7 @@ export default async function RoomPage({
   if (!user) redirect("/email-password");
 
   const { data: room } = await supabase.from("rooms").select("*").eq("id", id).maybeSingle();
-  if (!room) notFound();
+  if (!room || room.owner_id !== user.id) notFound();
 
   const { data: members } = await supabase
     .from("members")
