@@ -49,6 +49,9 @@
 .tg-chip{display:inline-block;background:rgba(255,255,255,.55);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;white-space:nowrap}
 .tg-field{display:block;font-size:13px;color:#3a3f47}
 .tg-input{display:block;width:100%;height:46px;margin-top:6px;padding:0 14px;border-radius:16px;border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.55);font-family:inherit;font-size:15px;color:#15181d}
+.tg-password-toggle{position:absolute;right:0;top:0;bottom:0;width:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:#6b7280;padding:0;border-radius:0 16px 16px 0;transition:color .15s ease}
+.tg-password-toggle:hover{color:#15181d}
+.tg-password-toggle:focus-visible{outline:2px solid #15181d;outline-offset:-2px}
 textarea.tg-input{height:auto;padding:10px 14px}
 .tg-alert{background:rgba(254,226,226,.92);color:#7f1d1d;border-radius:16px;padding:12px 14px;margin:0}
 .tg-member{padding:12px 0;border-bottom:1px solid rgba(255,255,255,.5)}

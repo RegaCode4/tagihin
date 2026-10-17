@@ -4,6 +4,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../lib/supabase/server-client";
 import { signIn, signUp } from "./actions";
+import PasswordField from "./PasswordField";
 
 export async function generateMetadata({
   searchParams,
@@ -95,18 +96,7 @@ export default async function LoginPage({
           Email
           <input name="email" type="email" required autoComplete="email" className="tg-input" placeholder="nama@email.com" />
         </label>
-        <label className="tg-field">
-          Password
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={signup ? 8 : undefined}
-            autoComplete={signup ? "new-password" : "current-password"}
-            className="tg-input"
-            placeholder={signup ? "Minimal 8 karakter" : "Password"}
-          />
-        </label>
+        <PasswordField signup={signup} />
         <button type="submit" className="tg-btn" style={{ width: "100%" }}>
           {signup ? "Daftar" : "Masuk"}
         </button>
