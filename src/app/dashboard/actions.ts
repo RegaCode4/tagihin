@@ -7,7 +7,8 @@ import { createClient } from "../../../lib/supabase/server-client";
 import { normalizePhone } from "../../../lib/phone";
 
 function fail(path: string, message: string): never {
-  redirect(`${path}?error=${encodeURIComponent(message)}`);
+  const sep = path.includes("?") ? "&" : "?";
+  redirect(`${path}${sep}error=${encodeURIComponent(message)}`);
 }
 
 async function requireUser() {

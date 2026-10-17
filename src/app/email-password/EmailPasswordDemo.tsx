@@ -41,7 +41,7 @@ export default function EmailPasswordDemo({ user }: EmailPasswordDemoProps) {
     event.preventDefault();
 
     if (mode == "signup") {
-      const { error, data } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -54,7 +54,7 @@ export default function EmailPasswordDemo({ user }: EmailPasswordDemoProps) {
         setStatus("Check your inbox to confirm the new account.");
       }
     } else {
-      const { error, data } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
