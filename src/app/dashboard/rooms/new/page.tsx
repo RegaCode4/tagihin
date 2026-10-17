@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createRoom } from "../../actions";
+
+export const metadata: Metadata = {
+  title: "Buat Room",
+};
 
 export default async function NewRoomPage({
   searchParams,

@@ -1,0 +1,35 @@
+/* Untitled blend
+ * INK GREY #707070
+ * WHITE GREY #DCDDDD
+ */
+.gradient-untitled,
+.tg-bg {
+  position: relative;
+  min-height: 100dvh;
+  color: #15181d;
+}
+.gradient-untitled::before,
+.tg-bg::before {
+  content: '';
+  position: fixed;
+  inset: -14px;
+  background: linear-gradient(180deg, #707070 25.0%, #DCDDDD 75.0%); /* fallback: engines without oklab interpolation */
+  background: linear-gradient(180deg in oklab, #707070 25.0%, #DCDDDD 75.0%);
+  filter: blur(7px); /* scale with your element size */
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gradient-untitled::after,
+.tg-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('/noise.png') repeat;
+  background-size: 256px 256px;
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+  opacity: 0.060;
+  pointer-events: none;
+  z-index: 0;
+}

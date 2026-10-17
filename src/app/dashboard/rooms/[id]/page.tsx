@@ -16,6 +16,19 @@ const rupiah = (n: number) =>
 // 6281234567890 -> 0812-3456-7890
 const localPhone = (p: string) => ("0" + p.slice(2)).replace(/^(\d{4})(\d{4})(\d+)$/, "$1-$2-$3");
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: room } = await supabase.from("rooms").select("title").eq("id", id).maybeSingle();
+  return {
+    title: room?.title ? `Room - ${room.title}` : "Room",
+  };
+}
+
 export default async function RoomPage({
   params,
   searchParams,

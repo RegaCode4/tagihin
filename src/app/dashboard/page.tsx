@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../lib/supabase/server-client";
 import { signOut } from "./actions";
+
+export const metadata: Metadata = {
+  title: "Beranda",
+};
 
 const rupiah = (n: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);

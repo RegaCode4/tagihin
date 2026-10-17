@@ -1,7 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../lib/supabase/server-client";
 import { signIn, signUp } from "./actions";
+import PasswordField from "./PasswordField";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}): Promise<Metadata> {
+  const { mode } = await searchParams;
+  return {
+    title: mode === "daftar" ? "Daftar" : "Masuk",
+  };
+}
 
 export default async function LoginPage({
   searchParams,
@@ -20,8 +34,31 @@ export default async function LoginPage({
 
   return (
     <>
-      <div style={{ paddingTop: 72 }}>
-        <h1 style={{ fontSize: 38, fontWeight: 700, letterSpacing: "-1px", margin: 0 }}>TagihIn</h1>
+      <div style={{ paddingTop: 48 }}>
+        <div
+          style={{
+            width: 58,
+            height: 58,
+            borderRadius: "50%",
+            background: "#ffffff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 8px 20px -2px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04)",
+            border: "2px solid #ffffff",
+            marginBottom: 16,
+          }}
+        >
+          <Image
+            src="/tapin-logo.png"
+            alt="Logo TagihIn"
+            width={38}
+            height={38}
+            style={{ objectFit: "contain" }}
+            priority
+          />
+        </div>
+        <h1 style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-0.8px", margin: 0 }}>TagihIn</h1>
         <p className="tg-muted" style={{ fontSize: 15, margin: "6px 0 0" }}>
           Iuran bersama, tercatat rapi.
         </p>
@@ -59,18 +96,7 @@ export default async function LoginPage({
           Email
           <input name="email" type="email" required autoComplete="email" className="tg-input" placeholder="nama@email.com" />
         </label>
-        <label className="tg-field">
-          Password
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={signup ? 8 : undefined}
-            autoComplete={signup ? "new-password" : "current-password"}
-            className="tg-input"
-            placeholder={signup ? "Minimal 8 karakter" : "Password"}
-          />
-        </label>
+        <PasswordField signup={signup} />
         <button type="submit" className="tg-btn" style={{ width: "100%" }}>
           {signup ? "Daftar" : "Masuk"}
         </button>
