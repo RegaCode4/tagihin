@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../lib/supabase/server-client";
-import { signOut } from "./actions";
 
 export const metadata: Metadata = {
   title: "Beranda",
@@ -32,35 +31,83 @@ export default async function DashboardPage() {
     year: "numeric",
     timeZone: "Asia/Jakarta",
   }).format(new Date());
-  const activeRooms = rooms?.filter((r) => r.status === "active").length ?? 0;
 
+  const activeRoomList = rooms?.filter((r) => r.status === "active") ?? [];
 
+  // Panggil refresh_current_period secara paralel untuk setiap room aktif
+  if (activeRoomList.length > 0) {
+    await Promise.all(
+      activeRoomList.map((r) => supabase.rpc("refresh_current_period", { p_room: r.id }))
+    );
+  }
+
+  // Hitung anggota dan room yang belum lunas pada periode bulan berjalan
+  const nowWib = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const currentMonthStr = `${nowWib}-01`;
+
+  let unpaidMembersCount = 0;
+  let roomsNeedingCollectionCount = 0;
+
+  if (activeRoomList.length > 0) {
+    const activeRoomIds = activeRoomList.map((r) => r.id);
+    const { data: unpaidPayments } = await supabase
+      .from("payments")
+      .select("id, member_id, periods!inner(room_id, period_month)")
+      .eq("status", "unpaid")
+      .eq("periods.period_month", currentMonthStr)
+      .in("periods.room_id", activeRoomIds);
+
+    type UnpaidPaymentRecord = {
+      id: string;
+      member_id: string;
+      periods: {
+        room_id: string;
+        period_month: string;
+      };
+    };
+
+    if (unpaidPayments) {
+      unpaidMembersCount = unpaidPayments.length;
+      const records = unpaidPayments as unknown as UnpaidPaymentRecord[];
+      const roomSet = new Set(records.map((p) => p.periods.room_id));
+      roomsNeedingCollectionCount = roomSet.size;
+    }
+  }
 
   return (
     <>
-      <header className="tg-row">
-        <div>
-          <p className="tg-muted" style={{ margin: 0 }}>{month}</p>
-          <h1 className="tg-h1">Halo, {profile?.name ?? "Penagih"}</h1>
-        </div>
-        <form action={signOut}>
-          <button type="submit" className="tg-btn tg-btn-sm tg-btn-ghost">Keluar</button>
-        </form>
+      <header>
+        <p className="tg-muted" style={{ margin: 0 }}>{month}</p>
+        <h1 className="tg-h1">Halo, {profile?.name ?? "Penagih"}</h1>
       </header>
 
       <section className="tg-glass" style={{ marginTop: 20 }}>
         <p className="tg-muted" style={{ margin: 0 }}>Ringkasan</p>
-        <p className="tg-big">{activeRooms} room aktif</p>
-        <p className="tg-muted" style={{ margin: "4px 0 0" }}>{memberCount ?? 0} anggota terdaftar</p>
+        <p className="tg-big" style={{ fontSize: 22, lineHeight: 1.3 }}>
+          Perlu ditagih bulan ini: {unpaidMembersCount} anggota di {roomsNeedingCollectionCount} room
+        </p>
+        <p className="tg-muted" style={{ margin: "6px 0 0" }}>
+          {activeRoomList.length} room aktif · {memberCount ?? 0} anggota terdaftar
+        </p>
       </section>
 
-      <div className="tg-row" id="room-list" style={{ margin: "24px 0 12px" }}>
-        <h2 className="tg-h2">Room iuran</h2>
-        <Link href="/dashboard/rooms/new" className="tg-btn tg-btn-sm">Buat room</Link>
+      <div className="tg-row" style={{ margin: "24px 0 12px" }}>
+        <h2 className="tg-h2">Room aktif</h2>
+        <Link href="/dashboard/rooms/new" className="tg-btn tg-btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+          </svg>
+          <span>Buat room</span>
+        </Link>
       </div>
 
       <ul className="tg-stack" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {rooms?.map((r) => (
+        {activeRoomList.slice(0, 3).map((r) => (
           <li key={r.id} className="tg-glass tg-row">
             <div>
               <Link href={`/dashboard/rooms/${r.id}`} className="tg-link" style={{ fontSize: 17 }}>
@@ -70,13 +117,24 @@ export default async function DashboardPage() {
                 {rupiah(r.total_amount)} per bulan · jatuh tempo tgl {r.due_day}
               </p>
             </div>
-            <span className="tg-chip">{r.status === "completed" ? "Selesai" : "Aktif"}</span>
+            <span className="tg-chip">Aktif</span>
           </li>
         ))}
-        {rooms?.length === 0 && (
-          <li className="tg-glass tg-muted">Belum ada room. Buat room iuran pertamamu.</li>
+        {activeRoomList.length === 0 && (
+          <li className="tg-glass tg-muted">Belum ada room aktif. Buat room iuran pertamamu.</li>
         )}
       </ul>
+
+      {activeRoomList.length > 0 && (
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <Link href="/dashboard/rooms" className="tg-link" style={{ fontSize: 14, display: "inline-flex", alignItems: "center", gap: 3 }}>
+            <span>Lihat semua room</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </Link>
+        </div>
+      )}
     </>
   );
 }
