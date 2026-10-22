@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../lib/supabase/server-client";
+import { createClient, getCachedUser } from "../../../../lib/supabase/server-client";
 
 export const metadata: Metadata = {
   title: "Room",
@@ -21,11 +21,10 @@ interface PeriodPaymentInfo {
 }
 
 export default async function RoomsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect("/email-password");
+
+  const supabase = await createClient();
 
   const { data: rooms } = await supabase
     .from("rooms")

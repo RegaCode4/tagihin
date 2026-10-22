@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 // sesuaikan dengan helper server client yang sudah ada di lib/supabase
-import { createClient } from "../../../lib/supabase/server-client";
+import { createClient, getCachedUser } from "../../../lib/supabase/server-client";
 import { normalizePhone } from "../../../lib/phone";
 
 function fail(path: string, message: string): never {
@@ -12,11 +12,9 @@ function fail(path: string, message: string): never {
 }
 
 async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect("/email-password");
+  const supabase = await createClient();
   return { supabase, user };
 }
 

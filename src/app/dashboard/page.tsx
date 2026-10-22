@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../lib/supabase/server-client";
+import { createClient, getCachedUser } from "../../../lib/supabase/server-client";
 
 export const metadata: Metadata = {
   title: "Beranda",
@@ -11,11 +11,10 @@ const rupiah = (n: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect("/email-password");
+
+  const supabase = await createClient();
 
   const [{ data: profile }, { data: rooms }, { count: memberCount }] = await Promise.all([
     supabase.from("profiles").select("name").eq("id", user.id).maybeSingle(),

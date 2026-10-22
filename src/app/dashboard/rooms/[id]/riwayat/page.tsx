@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "../../../../../../lib/supabase/server-client";
+import { createClient, getCachedUser } from "../../../../../../lib/supabase/server-client";
+import { getRoomById } from "../../../../../../lib/supabase/queries";
 import { formatDateId } from "../../../../../../lib/reminder";
 import { formatLocalPhone } from "../../../../../../lib/phone";
 
@@ -14,8 +15,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: room } = await supabase.from("rooms").select("title").eq("id", id).maybeSingle();
+  const room = await getRoomById(id);
   return {
     title: room?.title ? `Riwayat - ${room.title}` : "Riwayat",
   };
@@ -27,20 +27,14 @@ export default async function RoomRiwayatPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect("/email-password");
 
-  const { data: room } = await supabase
-    .from("rooms")
-    .select("id, title, owner_id")
-    .eq("id", id)
-    .maybeSingle();
-
+  const room = await getRoomById(id);
   // Milik orang lain atau tidak ada => 404
   if (!room || room.owner_id !== user.id) notFound();
+
+  const supabase = await createClient();
 
   // Ambil daftar periode terbaru dulu
   const { data: periods } = await supabase

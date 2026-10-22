@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../lib/supabase/server-client";
+import { createClient, getCachedUser } from "../../../../lib/supabase/server-client";
 import { formatDateId } from "../../../../lib/reminder";
 
 export const metadata: Metadata = {
@@ -32,11 +32,10 @@ export default async function AllRiwayatPage({
 }) {
   const { room: roomFilter } = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect("/email-password");
+
+  const supabase = await createClient();
 
   // Ambil daftar room milik pengguna untuk tombol filter opsional
   const { data: userRooms } = await supabase

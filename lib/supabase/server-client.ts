@@ -1,5 +1,7 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import type { User } from "@supabase/supabase-js";
 
 function getEnvironmentVariables() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,4 +36,16 @@ export async function createSupabaseServerClient() {
     });
 }
 
-export const createClient = createSupabaseServerClient;
+export const createClient = createSupabaseServerClient;
+
+/**
+ * Cache pemanggilan getUser() per-request lifecycle React.
+ * Menghindari duplicate roundtrip network ke /auth/v1/user di Server Components / Server Actions.
+ */
+export const getCachedUser = cache(async (): Promise<User | null> => {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+    return user;
+});

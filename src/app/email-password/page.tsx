@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../lib/supabase/server-client";
+import { getCachedUser } from "../../../lib/supabase/server-client";
 import { signIn, signUp } from "./actions";
 import PasswordField from "./PasswordField";
 
@@ -22,10 +22,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ mode?: string; error?: string; info?: string; next?: string }>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (user) redirect("/dashboard");
 
   const { mode, error, info, next } = await searchParams;

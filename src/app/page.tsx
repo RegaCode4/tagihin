@@ -2,16 +2,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Figtree } from "next/font/google";
-import { createClient } from "../../lib/supabase/server-client";
+import { getCachedUser } from "../../lib/supabase/server-client";
 import "./dashboard/dashboard.css";
 
 const figtree = Figtree({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (user) {
     redirect("/dashboard");

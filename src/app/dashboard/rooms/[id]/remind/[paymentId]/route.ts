@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../../../../lib/supabase/server-client";
+import { createClient, getCachedUser } from "../../../../../../../lib/supabase/server-client";
 import { buildReminderMessage, buildWhatsAppUrl } from "../../../../../../../lib/reminder";
 
 export async function GET(
@@ -8,14 +8,13 @@ export async function GET(
 ) {
   const { id: roomId, paymentId } = await props.params;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) {
     return new Response("Not Found", { status: 404 });
   }
+
+  const supabase = await createClient();
 
   // Muat payment + member + period + room (RLS aktif)
   const { data: payment, error } = await supabase

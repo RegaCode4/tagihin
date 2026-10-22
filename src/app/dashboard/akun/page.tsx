@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../lib/supabase/server-client";
+import { getCachedUser } from "../../../../lib/supabase/server-client";
+import { getUserProfile } from "../../../../lib/supabase/queries";
 import { formatLocalPhone } from "../../../../lib/phone";
 import { updateProfile, updatePassword, signOut } from "../actions";
 
@@ -16,17 +17,10 @@ export default async function AkunPage({
 }) {
   const { ok, error } = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect("/email-password");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, name, phone")
-    .eq("id", user.id)
-    .maybeSingle();
+  const profile = await getUserProfile(user.id);
 
   const displayPhone = formatLocalPhone(profile?.phone);
 
