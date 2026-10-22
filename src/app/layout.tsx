@@ -15,11 +15,28 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://tagihin.my.id"),
   title: {
-    default: "TagihIn",
-    template: "TagihIn - %s",
+    default: "Tagihin - Aplikasi Manajemen Tagihan Kost",
+    template: "Tagihin - %s",
   },
-  description: "Aplikasi penagihan dan pencatatan iuran bersama",
+  description:
+    "Aplikasi manajemen dan pencatatan tagihan iuran kost, kontrakan, atau sewa kamar secara praktis, otomatis, dan transparan.",
+  openGraph: {
+    title: "Tagihin - Aplikasi Manajemen Tagihan Kost",
+    description:
+      "Aplikasi manajemen dan pencatatan tagihan iuran kost, kontrakan, atau sewa kamar secara praktis, otomatis, dan transparan.",
+    url: "https://tagihin.my.id",
+    siteName: "Tagihin",
+    locale: "id_ID",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Tagihin - Aplikasi Manajemen Tagihan Kost",
+    description:
+      "Aplikasi manajemen dan pencatatan tagihan iuran kost, kontrakan, atau sewa kamar secara praktis, otomatis, dan transparan.",
+  },
   icons: {
     icon: "/tapin-logo.png",
     shortcut: "/tapin-logo.png",
