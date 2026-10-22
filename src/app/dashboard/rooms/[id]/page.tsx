@@ -36,25 +36,52 @@ export default async function RoomPage({
   const { id } = await params;
   const { error } = await searchParams;
 
-  const user = await getCachedUser();
-  if (!user) redirect("/email-password");
-
-  const room = await getRoomById(id);
-  if (!room || room.owner_id !== user.id) notFound();
-
   const supabase = await createClient();
 
-  // 1. Ambil seluruh anggota aktif di room ini
-  const { data: members } = await supabase
-    .from("members")
-    .select("id, name, phone, sort_order, is_active")
-    .eq("room_id", id)
-    .eq("is_active", true)
-    .order("sort_order");
+  const nowWib = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const currentMonthStr = `${nowWib}-01`;
+
+  // Eksekusi auth user, data room, daftar anggota, dan periode bulan berjalan secara paralel
+  const [user, room, { data: members }, { data: p }] = await Promise.all([
+    getCachedUser(),
+    getRoomById(id),
+    supabase
+      .from("members")
+      .select("id, name, phone, sort_order, is_active")
+      .eq("room_id", id)
+      .eq("is_active", true)
+      .order("sort_order"),
+    supabase
+      .from("periods")
+      .select(`
+        id,
+        room_id,
+        period_month,
+        due_date,
+        total_amount,
+        payments (
+          id,
+          member_id,
+          amount_due,
+          status,
+          paid_at
+        )
+      `)
+      .eq("room_id", id)
+      .eq("period_month", currentMonthStr)
+      .maybeSingle(),
+  ]);
+
+  if (!user) redirect("/email-password");
+  if (!room || room.owner_id !== user.id) notFound();
 
   const memberList = members ?? [];
 
-  // 2. Ambil data periode bulan berjalan
+  // Data periode bulan berjalan
   interface PaymentRow {
     id: string;
     member_id: string;
@@ -71,33 +98,6 @@ export default async function RoomPage({
     total_amount: number;
     payments: PaymentRow[];
   }
-
-  const nowWib = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-  }).format(new Date());
-  const currentMonthStr = `${nowWib}-01`;
-
-  const { data: p } = await supabase
-    .from("periods")
-    .select(`
-      id,
-      room_id,
-      period_month,
-      due_date,
-      total_amount,
-      payments (
-        id,
-        member_id,
-        amount_due,
-        status,
-        paid_at
-      )
-    `)
-    .eq("room_id", id)
-    .eq("period_month", currentMonthStr)
-    .maybeSingle();
 
   const currentPeriod: PeriodData | null = p ? (p as unknown as PeriodData) : null;
 
@@ -204,7 +204,7 @@ export default async function RoomPage({
               <span className="tg-chip" style={{ fontSize: 12, padding: "4px 10px" }}>Periode bulan ini</span>
               <p className="tg-muted" style={{ margin: "6px 0 0" }}>Jatuh tempo tgl {room.due_day}</p>
             </div>
-            <Link href={`/dashboard/rooms/${room.id}/riwayat`} className="tg-link" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 3 }}>
+            <Link href={`/dashboard/rooms/${room.id}/riwayat`} prefetch={false} className="tg-link" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 3 }}>
               <span>Lihat riwayat</span>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="m9 18 6-6-6-6" />

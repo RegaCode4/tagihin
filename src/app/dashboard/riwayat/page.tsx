@@ -32,18 +32,8 @@ export default async function AllRiwayatPage({
 }) {
   const { room: roomFilter } = await searchParams;
 
-  const user = await getCachedUser();
-  if (!user) redirect("/email-password");
-
   const supabase = await createClient();
 
-  // Ambil daftar room milik pengguna untuk tombol filter opsional
-  const { data: userRooms } = await supabase
-    .from("rooms")
-    .select("id, title")
-    .order("created_at", { ascending: false });
-
-  // Ambil semua periode milik pengguna (RLS aktif membatasi ke room milik user)
   let query = supabase
     .from("periods")
     .select(`
@@ -62,7 +52,18 @@ export default async function AllRiwayatPage({
     query = query.eq("room_id", roomFilter);
   }
 
-  const { data: rawPeriods } = await query;
+  // Eksekusi auth user, daftar room, dan data riwayat periode secara paralel
+  const [user, { data: userRooms }, { data: rawPeriods }] = await Promise.all([
+    getCachedUser(),
+    supabase
+      .from("rooms")
+      .select("id, title")
+      .order("created_at", { ascending: false }),
+    query,
+  ]);
+
+  if (!user) redirect("/email-password");
+
   const periods = (rawPeriods ?? []) as unknown as PeriodItem[];
 
   // Tanggal hari ini di WIB (Asia/Jakarta) format YYYY-MM-DD

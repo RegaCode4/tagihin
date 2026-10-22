@@ -27,37 +27,38 @@ export default async function RoomRiwayatPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await getCachedUser();
-  if (!user) redirect("/email-password");
-
-  const room = await getRoomById(id);
-  // Milik orang lain atau tidak ada => 404
-  if (!room || room.owner_id !== user.id) notFound();
-
   const supabase = await createClient();
 
-  // Ambil daftar periode terbaru dulu
-  const { data: periods } = await supabase
-    .from("periods")
-    .select(`
-      id,
-      period_month,
-      due_date,
-      total_amount,
-      payments (
+  // Eksekusi auth user, data room, dan data riwayat periode secara paralel
+  const [user, room, { data: periods }] = await Promise.all([
+    getCachedUser(),
+    getRoomById(id),
+    supabase
+      .from("periods")
+      .select(`
         id,
-        amount_due,
-        status,
-        paid_at,
-        member:members (
+        period_month,
+        due_date,
+        total_amount,
+        payments (
           id,
-          name,
-          phone
+          amount_due,
+          status,
+          paid_at,
+          member:members (
+            id,
+            name,
+            phone
+          )
         )
-      )
-    `)
-    .eq("room_id", id)
-    .order("period_month", { ascending: false });
+      `)
+      .eq("room_id", id)
+      .order("period_month", { ascending: false }),
+  ]);
+
+  if (!user) redirect("/email-password");
+  // Milik orang lain atau tidak ada => 404
+  if (!room || room.owner_id !== user.id) notFound();
 
   const list = periods ?? [];
 

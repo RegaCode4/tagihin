@@ -191,7 +191,7 @@ export default async function AkunPage({
           </p>
           <div className="tg-row">
             <span className="tg-muted">Versi 1.0.0</span>
-            <Link href="/kebijakan-privasi" className="tg-link" style={{ fontSize: 14, display: "inline-flex", alignItems: "center", gap: 3 }}>
+            <Link href="/kebijakan-privasi" prefetch={false} className="tg-link" style={{ fontSize: 14, display: "inline-flex", alignItems: "center", gap: 3 }}>
               <span>Kebijakan Privasi</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="m9 18 6-6-6-6" />

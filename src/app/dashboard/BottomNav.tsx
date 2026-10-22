@@ -25,6 +25,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: ReactNode;
+  prefetch?: boolean;
 }
 
 const ITEMS: NavItem[] = [
@@ -34,6 +35,7 @@ const ITEMS: NavItem[] = [
     key: "history",
     label: "Riwayat",
     href: "/dashboard/riwayat",
+    prefetch: false,
     icon: svg(
       <>
         <circle cx="12" cy="12" r="9" />
@@ -45,6 +47,7 @@ const ITEMS: NavItem[] = [
     key: "account",
     label: "Akun",
     href: "/dashboard/akun",
+    prefetch: false,
     icon: svg(
       <>
         <circle cx="12" cy="8" r="4" />
@@ -92,6 +95,7 @@ export default function BottomNav() {
           <Link
             key={it.key}
             href={it.href}
+            prefetch={it.prefetch}
             className={cls}
             aria-label={it.label}
             aria-current={isActive ? "page" : undefined}

@@ -11,19 +11,43 @@ const rupiah = (n: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 
 export default async function DashboardPage() {
-  const user = await getCachedUser();
-  if (!user) redirect("/email-password");
-
   const supabase = await createClient();
 
-  const [{ data: profile }, { data: rooms }, { count: memberCount }] = await Promise.all([
-    supabase.from("profiles").select("name").eq("id", user.id).maybeSingle(),
+  const nowWib = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const currentMonthStr = `${nowWib}-01`;
+
+  // Eksekusi seluruh data dashboard secara paralel
+  const [
+    user,
+    { data: rooms },
+    { count: memberCount },
+    { data: unpaidPayments },
+  ] = await Promise.all([
+    getCachedUser(),
     supabase
       .from("rooms")
       .select("id, title, total_amount, due_day, status")
       .order("created_at", { ascending: false }),
     supabase.from("members").select("id", { count: "exact", head: true }).eq("is_active", true),
+    supabase
+      .from("payments")
+      .select("id, member_id, periods!inner(room_id, period_month, rooms!inner(status))")
+      .eq("status", "unpaid")
+      .eq("periods.period_month", currentMonthStr)
+      .eq("periods.rooms.status", "active"),
   ]);
+
+  if (!user) redirect("/email-password");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", user.id)
+    .maybeSingle();
 
   const month = new Intl.DateTimeFormat("id-ID", {
     month: "long",
@@ -33,26 +57,11 @@ export default async function DashboardPage() {
 
   const activeRoomList = rooms?.filter((r) => r.status === "active") ?? [];
 
-  // Hitung anggota dan room yang belum lunas pada periode bulan berjalan
-  const nowWib = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-  }).format(new Date());
-  const currentMonthStr = `${nowWib}-01`;
-
   let unpaidMembersCount = 0;
   let roomsNeedingCollectionCount = 0;
 
-  if (activeRoomList.length > 0) {
-    const activeRoomIds = activeRoomList.map((r) => r.id);
-    const { data: unpaidPayments } = await supabase
-      .from("payments")
-      .select("id, member_id, periods!inner(room_id, period_month)")
-      .eq("status", "unpaid")
-      .eq("periods.period_month", currentMonthStr)
-      .in("periods.room_id", activeRoomIds);
-
+  if (unpaidPayments) {
+    unpaidMembersCount = unpaidPayments.length;
     type UnpaidPaymentRecord = {
       id: string;
       member_id: string;
@@ -61,13 +70,9 @@ export default async function DashboardPage() {
         period_month: string;
       };
     };
-
-    if (unpaidPayments) {
-      unpaidMembersCount = unpaidPayments.length;
-      const records = unpaidPayments as unknown as UnpaidPaymentRecord[];
-      const roomSet = new Set(records.map((p) => p.periods.room_id));
-      roomsNeedingCollectionCount = roomSet.size;
-    }
+    const records = unpaidPayments as unknown as UnpaidPaymentRecord[];
+    const roomSet = new Set(records.map((p) => p.periods.room_id));
+    roomsNeedingCollectionCount = roomSet.size;
   }
 
   return (

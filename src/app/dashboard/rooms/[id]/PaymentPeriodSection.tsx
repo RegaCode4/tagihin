@@ -111,7 +111,7 @@ export default function PaymentPeriodSection({
               Jatuh tempo {formatDateId(dueDate)}
             </p>
           </div>
-          <Link href={`/dashboard/rooms/${roomId}/riwayat`} className="tg-link" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 3 }}>
+          <Link href={`/dashboard/rooms/${roomId}/riwayat`} prefetch={false} className="tg-link" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 3 }}>
             <span>Lihat riwayat</span>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m9 18 6-6-6-6" />

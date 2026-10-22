@@ -21,21 +21,6 @@ interface PeriodPaymentInfo {
 }
 
 export default async function RoomsPage() {
-  const user = await getCachedUser();
-  if (!user) redirect("/email-password");
-
-  const supabase = await createClient();
-
-  const { data: rooms } = await supabase
-    .from("rooms")
-    .select("id, title, total_amount, due_day, status, created_at")
-    .order("created_at", { ascending: false });
-
-  const roomList = rooms ?? [];
-  const activeRooms = roomList.filter((r) => r.status === "active");
-  const completedRooms = roomList.filter((r) => r.status === "completed");
-
-  // Hitung status pembayaran bulan berjalan (Asia/Jakarta)
   const nowWib = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Jakarta",
     year: "numeric",
@@ -43,23 +28,34 @@ export default async function RoomsPage() {
   }).format(new Date());
   const currentMonthStr = `${nowWib}-01`;
 
-  const periodMap = new Map<string, PeriodPaymentInfo>();
+  const supabase = await createClient();
 
-  if (activeRooms.length > 0) {
-    const activeIds = activeRooms.map((r) => r.id);
-    const { data: periods } = await supabase
+  // Eksekusi user auth, daftar room, dan data periode bulan berjalan secara paralel
+  const [user, { data: rooms }, { data: periods }] = await Promise.all([
+    getCachedUser(),
+    supabase
+      .from("rooms")
+      .select("id, title, total_amount, due_day, status, created_at")
+      .order("created_at", { ascending: false }),
+    supabase
       .from("periods")
       .select("room_id, payments(id, status)")
-      .eq("period_month", currentMonthStr)
-      .in("room_id", activeIds);
+      .eq("period_month", currentMonthStr),
+  ]);
 
-    if (periods) {
-      for (const p of periods) {
-        const payments = (p.payments as unknown as PaymentItem[]) ?? [];
-        const totalCount = payments.length;
-        const paidCount = payments.filter((pay) => pay.status === "paid").length;
-        periodMap.set(p.room_id, { paidCount, totalCount });
-      }
+  if (!user) redirect("/email-password");
+
+  const roomList = rooms ?? [];
+  const activeRooms = roomList.filter((r) => r.status === "active");
+  const completedRooms = roomList.filter((r) => r.status === "completed");
+
+  const periodMap = new Map<string, PeriodPaymentInfo>();
+  if (periods) {
+    for (const p of periods) {
+      const payments = (p.payments as unknown as PaymentItem[]) ?? [];
+      const totalCount = payments.length;
+      const paidCount = payments.filter((pay) => pay.status === "paid").length;
+      periodMap.set(p.room_id, { paidCount, totalCount });
     }
   }
 

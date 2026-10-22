@@ -100,7 +100,7 @@ export default async function LoginPage({
         {signup && (
           <p className="tg-muted" style={{ textAlign: "center", fontSize: 12, margin: "2px 0 0" }}>
             Dengan mendaftar, kamu menyetujui{" "}
-            <Link href="/kebijakan-privasi" className="tg-link" style={{ fontSize: 12 }}>
+            <Link href="/kebijakan-privasi" prefetch={false} className="tg-link" style={{ fontSize: 12 }}>
               Kebijakan Privasi
             </Link>
           </p>
