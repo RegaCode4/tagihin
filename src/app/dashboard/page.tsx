@@ -34,13 +34,6 @@ export default async function DashboardPage() {
 
   const activeRoomList = rooms?.filter((r) => r.status === "active") ?? [];
 
-  // Panggil refresh_current_period secara paralel untuk setiap room aktif
-  if (activeRoomList.length > 0) {
-    await Promise.all(
-      activeRoomList.map((r) => supabase.rpc("refresh_current_period", { p_room: r.id }))
-    );
-  }
-
   // Hitung anggota dan room yang belum lunas pada periode bulan berjalan
   const nowWib = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Jakarta",

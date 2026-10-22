@@ -36,13 +36,6 @@ export default async function RoomsPage() {
   const activeRooms = roomList.filter((r) => r.status === "active");
   const completedRooms = roomList.filter((r) => r.status === "completed");
 
-  // Sinkronisasi periode bulan berjalan untuk setiap room aktif secara paralel
-  if (activeRooms.length > 0) {
-    await Promise.all(
-      activeRooms.map((r) => supabase.rpc("refresh_current_period", { p_room: r.id }))
-    );
-  }
-
   // Hitung status pembayaran bulan berjalan (Asia/Jakarta)
   const nowWib = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Jakarta",
