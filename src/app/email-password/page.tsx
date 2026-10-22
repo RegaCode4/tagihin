@@ -100,6 +100,14 @@ export default async function LoginPage({
         <button type="submit" className="tg-btn" style={{ width: "100%" }}>
           {signup ? "Daftar" : "Masuk"}
         </button>
+        {signup && (
+          <p className="tg-muted" style={{ textAlign: "center", fontSize: 12, margin: "2px 0 0" }}>
+            Dengan mendaftar, kamu menyetujui{" "}
+            <Link href="/kebijakan-privasi" className="tg-link" style={{ fontSize: 12 }}>
+              Kebijakan Privasi
+            </Link>
+          </p>
+        )}
         <p className="tg-muted" style={{ textAlign: "center", margin: 0 }}>
           {signup ? "Sudah punya akun? " : "Belum punya akun? "}
           <Link className="tg-link" href={signup ? "/email-password" : "/email-password?mode=daftar"}>

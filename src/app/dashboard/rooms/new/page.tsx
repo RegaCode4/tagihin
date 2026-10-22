@@ -14,7 +14,12 @@ export default async function NewRoomPage({
   const { error } = await searchParams;
   return (
     <>
-      <Link href="/dashboard" className="tg-muted">← Batal</Link>
+      <Link href="/dashboard/rooms" className="tg-muted" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        <span>Batal</span>
+      </Link>
       <h1 className="tg-h1">Buat room iuran</h1>
 
       <form action={createRoom} className="tg-glass tg-stack" style={{ marginTop: 16 }}>

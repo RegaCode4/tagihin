@@ -7,3 +7,10 @@ export function normalizePhone(input: string): string | null {
   else if (d.startsWith("8")) d = "62" + d;
   return /^628\d{7,11}$/.test(d) ? d : null;
 }
+
+/** Mengubah format 628xx menjadi format tampilan lokal 08xx-xxxx-xxxx. */
+export function formatLocalPhone(phone?: string | null): string {
+  if (!phone) return "";
+  const d = phone.startsWith("62") ? "0" + phone.slice(2) : phone;
+  return d.replace(/^(\d{4})(\d{4})(\d+)$/, "$1-$2-$3");
+}
