@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { setPaymentPaid, updateMember, deactivateMember } from "../../actions";
 import { formatDateId } from "../../../../../lib/reminder";
 import { formatLocalPhone } from "../../../../../lib/phone";
@@ -23,7 +23,7 @@ export interface MemberItem {
 
 interface Props {
   roomId: string;
-  periodId: string;
+  periodId?: string;
   periodMonthName: string;
   dueDate: string;
   totalAmount: number;
@@ -32,18 +32,21 @@ interface Props {
 
 export default function PaymentPeriodSection({
   roomId,
+  periodId,
   periodMonthName,
   dueDate,
   totalAmount,
   initialItems,
 }: Props) {
-  const [items, setItems] = useState<MemberItem[]>(initialItems);
+  const [items, updatePayment] = useOptimistic(
+    initialItems,
+    (currentItems, update: { paymentId: string; status: "paid" | "unpaid"; paidAt: string | null }) =>
+      currentItems.map((item) => item.paymentId === update.paymentId ? { ...item, ...update } : item),
+  );
   const [isPending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Sync state if props change (e.g. after server revalidation)
-  // We keep items initialized with initialItems
-  // Only payments count toward collected
+  // Fresh server props are the source of truth after each action or member change.
   const collected = items
     .filter((it) => it.status === "paid" && !it.nextMonthOnly)
     .reduce((sum, it) => sum + it.amountDue, 0);
@@ -52,42 +55,19 @@ export default function PaymentPeriodSection({
 
   const handleTogglePaid = (paymentId: string, currentStatus: "paid" | "unpaid") => {
     const nextPaid = currentStatus !== "paid";
-    const nowIso = new Date().toISOString();
-
-    // Optimistic update
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.paymentId === paymentId) {
-          return {
-            ...it,
-            status: nextPaid ? "paid" : "unpaid",
-            paidAt: nextPaid ? nowIso : null,
-          };
-        }
-        return it;
-      })
-    );
-
     setActionError(null);
 
     startTransition(async () => {
+      updatePayment({
+        paymentId,
+        status: nextPaid ? "paid" : "unpaid",
+        paidAt: nextPaid ? new Date().toISOString() : null,
+      });
       try {
         await setPaymentPaid(roomId, paymentId, nextPaid);
-      } catch (err: unknown) {
-        // Revert on error
-        setItems((prev) =>
-          prev.map((it) => {
-            if (it.paymentId === paymentId) {
-              return {
-                ...it,
-                status: currentStatus,
-                paidAt: currentStatus === "paid" ? it.paidAt : null,
-              };
-            }
-            return it;
-          })
-        );
-        setActionError(err instanceof Error ? err.message : "Gagal memperbarui status pembayaran.");
+      } catch {
+        // useOptimistic restores the server state when the transition finishes.
+        setActionError("Gagal memperbarui status pembayaran. Coba lagi.");
       }
     });
   };
@@ -101,44 +81,46 @@ export default function PaymentPeriodSection({
       )}
 
       {/* Ringkasan Periode Berjalan */}
-      <section className="tg-glass" style={{ marginTop: 16 }}>
-        <div className="tg-row">
-          <div>
-            <span className="tg-chip" style={{ fontSize: 12, padding: "4px 10px" }}>
-              Periode {periodMonthName}
-            </span>
-            <p className="tg-muted" style={{ margin: "6px 0 0" }}>
-              Jatuh tempo {formatDateId(dueDate)}
-            </p>
+      {periodId && (
+        <section className="tg-glass" style={{ marginTop: 16 }}>
+          <div className="tg-row">
+            <div>
+              <span className="tg-chip" style={{ fontSize: 12, padding: "4px 10px" }}>
+                Periode {periodMonthName}
+              </span>
+              <p className="tg-muted" style={{ margin: "6px 0 0" }}>
+                Jatuh tempo {formatDateId(dueDate)}
+              </p>
+            </div>
+            <Link href={`/dashboard/rooms/${roomId}/riwayat`} prefetch={false} className="tg-link" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <span>Lihat riwayat</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </Link>
           </div>
-          <Link href={`/dashboard/rooms/${roomId}/riwayat`} prefetch={false} className="tg-link" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 3 }}>
-            <span>Lihat riwayat</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="m9 18 6-6-6-6" />
-            </svg>
-          </Link>
-        </div>
 
-        <div style={{ marginTop: 16 }}>
-          <div className="tg-row" style={{ alignItems: "baseline" }}>
-            <span className="tg-muted" style={{ fontSize: 13, fontWeight: 600 }}>Terkumpul</span>
-            <span className="tg-muted" style={{ fontSize: 13 }}>
-              {progressPercent}%
-            </span>
+          <div style={{ marginTop: 16 }}>
+            <div className="tg-row" style={{ alignItems: "baseline" }}>
+              <span className="tg-muted" style={{ fontSize: 13, fontWeight: 600 }}>Terkumpul</span>
+              <span className="tg-muted" style={{ fontSize: 13 }}>
+                {progressPercent}%
+              </span>
+            </div>
+            <p className="tg-big" style={{ fontSize: 22, margin: "2px 0 0", wordBreak: "break-word", lineHeight: 1.3 }}>
+              {rupiah(collected)} dari {rupiah(totalAmount)}
+            </p>
+            <div className="tg-progress-bar" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
+              <div className="tg-progress-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
           </div>
-          <p className="tg-big" style={{ fontSize: 22, margin: "2px 0 0", wordBreak: "break-word", lineHeight: 1.3 }}>
-            {rupiah(collected)} dari {rupiah(totalAmount)}
-          </p>
-          <div className="tg-progress-bar" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
-            <div className="tg-progress-fill" style={{ width: `${progressPercent}%` }} />
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Daftar Anggota & Status Pembayaran */}
       <section className="tg-glass" style={{ marginTop: 16, paddingTop: 8, paddingBottom: 8 }}>
         <h2 className="tg-h2" style={{ fontSize: 16, margin: "8px 0 12px" }}>
-          Status pembayaran anggota
+          {periodId ? "Status pembayaran anggota" : "Daftar anggota"}
         </h2>
 
         {items.map((m) => {
@@ -200,9 +182,11 @@ export default function PaymentPeriodSection({
                   )}
                 </div>
 
-                <div>
-                  <span className="tg-chip" style={{ fontSize: 13, fontWeight: 600 }}>{rupiah(m.amountDue)}</span>
-                </div>
+                {m.paymentId && (
+                  <div>
+                    <span className="tg-chip" style={{ fontSize: 13, fontWeight: 600 }}>{rupiah(m.amountDue)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Actions row: Checkbox Lunas (target >= 44px) & Tombol Ingatkan */}
@@ -272,14 +256,16 @@ export default function PaymentPeriodSection({
 
         {items.length === 0 && <p className="tg-muted">Belum ada anggota di room ini.</p>}
 
-        <p className="tg-muted" style={{ fontSize: 12, marginTop: 14, borderTop: "1px solid rgba(255,255,255,0.4)", paddingTop: 10, display: "flex", alignItems: "flex-start", gap: 6 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4" />
-            <path d="M12 8h.01" />
-          </svg>
-          <span>Catatan: Anggota yang baru ditambahkan setelah ada yang membayar lunas tidak akan mengubah tagihan periode berjalan (anggota baru mulai ditagih bulan depan).</span>
-        </p>
+        {periodId && (
+          <p className="tg-muted" style={{ fontSize: 12, marginTop: 14, borderTop: "1px solid rgba(255,255,255,0.4)", paddingTop: 10, display: "flex", alignItems: "flex-start", gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4" />
+              <path d="M12 8h.01" />
+            </svg>
+            <span>Catatan: Anggota yang baru ditambahkan setelah ada yang membayar lunas tidak akan mengubah tagihan periode berjalan (anggota baru mulai ditagih bulan depan).</span>
+          </p>
+        )}
       </section>
     </>
   );

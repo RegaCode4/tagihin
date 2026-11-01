@@ -36,7 +36,24 @@ export default async function RoomPage({
   const { id } = await params;
   const { error } = await searchParams;
 
+  const [user, room] = await Promise.all([getCachedUser(), getRoomById(id)]);
+  if (!user) redirect("/email-password");
+  if (!room || room.owner_id !== user.id) notFound();
+
   const supabase = await createClient();
+  let syncError: string | null = null;
+
+  // The RPC is idempotent and preserves periods that already have paid payments.
+  // Finish it before reading payments so new months and member changes appear immediately.
+  if (room.status === "active") {
+    const { error: refreshError } = await supabase.rpc("refresh_current_period", {
+      p_room: id,
+    });
+    if (refreshError) {
+      console.error("Failed to synchronize room period", { roomId: id, error: refreshError });
+      syncError = "Periode tagihan belum berhasil disinkronkan. Muat ulang halaman untuk mencoba kembali.";
+    }
+  }
 
   const nowWib = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Jakarta",
@@ -45,10 +62,8 @@ export default async function RoomPage({
   }).format(new Date());
   const currentMonthStr = `${nowWib}-01`;
 
-  // Eksekusi auth user, data room, daftar anggota, dan periode bulan berjalan secara paralel
-  const [user, room, { data: members }, { data: p }] = await Promise.all([
-    getCachedUser(),
-    getRoomById(id),
+  // Independent reads can run in parallel after the period has been synchronized.
+  const [{ data: members, error: membersError }, { data: p, error: periodError }] = await Promise.all([
     supabase
       .from("members")
       .select("id, name, phone, sort_order, is_active")
@@ -76,10 +91,13 @@ export default async function RoomPage({
       .maybeSingle(),
   ]);
 
-  if (!user) redirect("/email-password");
-  if (!room || room.owner_id !== user.id) notFound();
-
   const memberList = members ?? [];
+  if (membersError) {
+    console.error("Failed to load room members", { roomId: id, error: membersError });
+  }
+  if (periodError) {
+    console.error("Failed to load room period", { roomId: id, error: periodError });
+  }
 
   // Data periode bulan berjalan
   interface PaymentRow {
@@ -102,7 +120,6 @@ export default async function RoomPage({
   const currentPeriod: PeriodData | null = p ? (p as unknown as PeriodData) : null;
 
   // Siapkan data anggota dan porsi pembayaran
-  let memberItems: MemberItem[] = [];
   let periodMonthName = "";
   let dueDate = "";
   let isOverdue = false;
@@ -127,38 +144,41 @@ export default async function RoomPage({
     }).format(new Date());
 
     isOverdue = activePeriod.due_date < todayWib;
+  }
 
-    const paymentList = activePeriod.payments ?? [];
-    const paymentMap = new Map<string, PaymentRow>(paymentList.map((pay: PaymentRow) => [pay.member_id, pay]));
-
-    memberItems = memberList.map((mem) => {
-      const p = paymentMap.get(mem.id);
-      if (p) {
-        return {
-          memberId: mem.id,
-          name: mem.name,
-          phone: mem.phone,
-          paymentId: p.id,
-          amountDue: Number(p.amount_due), // Diambil dari database payments.amount_due
-          status: p.status,
-          paidAt: p.paid_at,
-          isOverdue: isOverdue && p.status === "unpaid",
-          nextMonthOnly: false,
-        };
-      }
+  const paymentList = activePeriod?.payments ?? [];
+  const paymentMap = new Map<string, PaymentRow>(paymentList.map((pay) => [pay.member_id, pay]));
+  const hasPaidPayments = paymentList.some((payment) => payment.status === "paid");
+  const memberItems: MemberItem[] = memberList.map((mem) => {
+    const payment = paymentMap.get(mem.id);
+    if (payment) {
       return {
         memberId: mem.id,
         name: mem.name,
         phone: mem.phone,
-        paymentId: undefined,
-        amountDue: 0,
-        status: "unpaid",
-        paidAt: null,
-        isOverdue: false,
-        nextMonthOnly: true,
+        paymentId: payment.id,
+        amountDue: Number(payment.amount_due),
+        status: payment.status,
+        paidAt: payment.paid_at,
+        isOverdue: isOverdue && payment.status === "unpaid",
+        nextMonthOnly: false,
       };
-    });
-  }
+    }
+    return {
+      memberId: mem.id,
+      name: mem.name,
+      phone: mem.phone,
+      amountDue: 0,
+      status: "unpaid",
+      paidAt: null,
+      isOverdue: false,
+      nextMonthOnly: Boolean(activePeriod && hasPaidPayments),
+    };
+  });
+
+  const periodIssue = periodError
+    ? "Data tagihan gagal dimuat. Muat ulang halaman untuk mencoba kembali."
+    : syncError;
 
   // Pratinjau bila belum ada periode
   const previewShares =
@@ -185,18 +205,19 @@ export default async function RoomPage({
       )}
 
       {error && <p role="alert" className="tg-alert" style={{ marginTop: 12 }}>{error}</p>}
+      {periodIssue && (
+        <div role="alert" className="tg-alert" style={{ marginTop: 12 }}>
+          <p style={{ margin: "0 0 8px" }}>{periodIssue}</p>
+          <a href={`/dashboard/rooms/${room.id}`} className="tg-link">Coba lagi</a>
+        </div>
+      )}
+      {membersError && (
+        <p role="alert" className="tg-alert" style={{ marginTop: 12 }}>
+          Daftar anggota gagal dimuat. Muat ulang halaman untuk mencoba kembali.
+        </p>
+      )}
 
-      {activePeriod ? (
-        <PaymentPeriodSection
-          key={activePeriod.id}
-          roomId={room.id}
-          periodId={activePeriod.id}
-          periodMonthName={periodMonthName}
-          dueDate={dueDate}
-          totalAmount={Number(activePeriod.total_amount)}
-          initialItems={memberItems}
-        />
-      ) : (
+      {!activePeriod && (
         /* Keadaan kosong yang ramah jika belum ada periode (tanpa anggota atau sebelum periode berjalan) */
         <section className="tg-glass" style={{ marginTop: 16 }}>
           <div className="tg-row">
@@ -212,16 +233,34 @@ export default async function RoomPage({
             </Link>
           </div>
           <p className="tg-muted" style={{ marginTop: 14 }}>
-            Belum ada periode tagihan aktif. Tambahkan anggota di bawah untuk memulai penagihan iuran bulan ini.
+            {room.status === "completed"
+              ? "Room sudah selesai. Lihat riwayat pembayaran atau aktifkan kembali untuk melanjutkan iuran."
+              : membersError
+                ? "Data anggota belum dapat dimuat. Muat ulang halaman untuk mencoba kembali."
+                : memberList.length === 0
+                  ? "Tambahkan anggota di bawah untuk memulai penagihan iuran bulan ini."
+                  : "Periode tagihan belum tersedia. Muat ulang halaman untuk mencoba kembali."}
           </p>
           <p className="tg-big" style={{ fontSize: 26, margin: "12px 0 0" }}>
             {rupiah(room.total_amount)}
           </p>
           <p className="tg-muted" style={{ margin: "4px 0 0" }}>
-            Total iuran per bulan · {memberList.length} anggota
+            Total iuran per bulan{!membersError && ` · ${memberList.length} anggota`}
             {previewShares.length > 0 && ` (pratinjau: ${rupiah(previewShares[0])} per orang)`}
           </p>
         </section>
+      )}
+
+      {!membersError && (
+        <PaymentPeriodSection
+          key={activePeriod?.id ?? "members"}
+          roomId={room.id}
+          periodId={activePeriod?.id}
+          periodMonthName={periodMonthName}
+          dueDate={dueDate}
+          totalAmount={Number(activePeriod?.total_amount ?? room.total_amount)}
+          initialItems={memberItems}
+        />
       )}
 
       {/* Tambah Anggota */}
