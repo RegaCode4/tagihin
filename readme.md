@@ -20,7 +20,7 @@
 ![Status](https://img.shields.io/badge/status-dalam%20pengembangan-orange)
 ![Tugas](https://img.shields.io/badge/tugas-Kewirausahaan%202026-blue)
 
-[Situs](https://tagihin.my.id/) · [Alur Penagih](#alur-penagih) · [Infrastruktur](#arsitektur-infrastruktur) · [ERD](#skema-database-erd) · [Memulai](#memulai)
+[Situs](https://tagihin.my.id/) · [Alur Penagih](#alur-penagih) · [Infrastruktur](#arsitektur-infrastruktur) · [ERD](#skema-database-erd) · [Memulai](#memulai) · [Minggu 5 dan 6](docs/minggu-5-6/README.md)
 
 </div>
 
@@ -41,20 +41,18 @@ Masalah yang ingin diselesaikan (masih berupa hipotesis dan akan diuji lewat pil
 
 ## Fitur
 
-**Sudah berjalan**
+**Sudah diimplementasikan**
 
 - [x] Setup Next.js dan deploy ke Vercel
 - [x] Login email + password (Supabase Auth)
 
-**Dalam rencana**
-
-- [ ] Skema database dan Row Level Security (RLS)
-- [ ] Room iuran dan manajemen anggota (nama + nomor HP)
-- [ ] Pembagian rata otomatis
-- [ ] Periode bulanan otomatis
-- [ ] Checklist status lunas dan riwayat per bulan
-- [ ] Pengingat WhatsApp satu klik (tautan `wa.me`, terkirim dari nomor penagih)
-- [ ] Halaman kebijakan privasi
+- [x] Skema database dan Row Level Security (RLS)
+- [x] Room iuran dan manajemen anggota (nama + nomor HP)
+- [x] Pembagian rata otomatis
+- [x] Periode bulanan otomatis
+- [x] Checklist status lunas dan riwayat per bulan
+- [x] Draf pengingat WhatsApp (tautan `wa.me` yang dibuka oleh penagih)
+- [x] Halaman kebijakan privasi
 
 **Ditunda atau tahap lanjutan**
 
@@ -91,38 +89,33 @@ flowchart TD
 
 ## Arsitektur Infrastruktur
 
-<div align="center">
-  <img src="docs/images/infrastruktur.png" alt="Arsitektur infrastruktur TagihIn" width="80%">
-</div>
-
-Garis putus-putus pada diagram berarti rencana, opsional, atau ditunda. Deploy dilakukan langsung dari GitHub ke Vercel.
-
-<details>
-<summary>Versi teks (Mermaid)</summary>
+Domain `tagihin.my.id` terdaftar di IDwebhost. DNS publik menggunakan Cloudflare Free dalam mode **DNS only**, dengan nameserver `decker.ns.cloudflare.com` dan `diva.ns.cloudflare.com` yang terverifikasi pada 8 November 2026. Browser terhubung langsung ke Vercel melalui HTTPS. Push atau merge ke `main` memicu deploy produksi di Vercel.
 
 ```mermaid
 flowchart LR
-    P["Penagih: browser atau HP"] --> V
-    P -.-> CF["Cloudflare (rencana): DNS, CDN, SSL"]
-    CF -.-> V
-    GH["GitHub: source code"] --> V
+    P["Penagih"] -. Resolusi DNS .-> CF["Cloudflare Free DNS only"]
+    P -->|HTTPS| N
+    GH["GitHub main"] -->|Deploy otomatis| N
     subgraph V["Vercel: tagihin.my.id"]
         N["Next.js App Router: UI dan Server Actions"]
-        CR["Cron job (rencana): periode bulanan"]
+        CR["Vercel Cron harian"] --> API["API sinkronisasi periode"]
     end
     subgraph S["Supabase (free tier)"]
         AU["Supabase Auth: email + password"]
         DB["PostgreSQL: tabel dan RLS"]
     end
     N --> AU
-    N --> DB
-    CR -.-> DB
-    N --> WA["WhatsApp lewat tautan wa.me"]
-    WA --> AG["Anggota iuran (tanpa akun)"]
-    N -.-> GW["Gateway bayar (tahap lanjutan)"]
-    AU -.-> GO["Google OAuth (ditunda)"]
-    AU -.-> SM["SMTP sendiri (opsional)"]
+    N -->|Akses pengguna dengan RLS| DB
+    API -->|RPC service role| DB
+    N --> WA["Draf pengingat WhatsApp"]
 ```
+
+Lihat [panduan konfigurasi infrastruktur](docs/minggu-5-6/infrastruktur.md) untuk pengaturan DNS, GitHub Actions, dan pemantauan uptime.
+
+<details>
+<summary>Diagram rancangan awal</summary>
+
+<img src="docs/images/infrastruktur.png" alt="Diagram rancangan awal infrastruktur TagihIn" width="80%">
 
 </details>
 
@@ -209,8 +202,17 @@ erDiagram
 | Autentikasi | Supabase Auth |
 | Database | Supabase PostgreSQL (dengan RLS) |
 | Hosting | Vercel (deploy otomatis dari GitHub) |
+| DNS | Cloudflare Free (DNS only) |
 | Pengingat | Tautan `wa.me` |
-| Rencana | Cloudflare, cron job, Google OAuth, payment gateway |
+
+## Pengujian Minggu 5 dan 6
+
+- **Tes lokal.** 20 tes otomatis lulus, mencakup isolasi RLS antarpenagih, akurasi pembagian rupiah, dan riwayat lintas periode. Jalankan ulang dengan `npm test`.
+- **Supabase produksi.** Ketiga migrasi tercatat. Saat penagih menulis tagihan, policy RLS memastikan anggota dan periodenya berasal dari room yang sama. Pemeriksaan database mengonfirmasi bahwa semua tagihan yang sudah ada memenuhi aturan itu. [Migrasi RLS November](supabase/migrations/20261108000000_scope_payment_members.sql)
+- **Uji aplikasi.** Pemilik proyek sudah menjalankan pengujian dengan dua akun setelah migrasi produksi.
+- **CI dan uptime.** Workflow tersedia di repo. Pemantauan per jam mulai dijadwalkan saat workflow uptime masuk ke branch default GitHub.
+
+Panduan dan formulir uji coba dengan kelompok iuran tersedia di [panduan pilot](docs/minggu-5-6/pilot.md).
 
 ## Memulai
 
@@ -239,13 +241,13 @@ npm run dev
 
 Buka `http://localhost:3000`.
 
-**Deploy:** hubungkan repositori ke Vercel, tambahkan variabel lingkungan yang sama di pengaturan proyek Vercel. Setiap push ke branch produksi akan langsung mengubah situs live, jadi kerjakan fitur baru di branch terpisah.
+Push atau merge ke `main` memicu build Vercel. Setelah build berhasil, versi baru tersedia di `tagihin.my.id`. Untuk perubahan database, cek daftar migrasi dengan `npx supabase db push --remote --dry-run`, lalu terapkan migrasi yang sesuai ke proyek Supabase yang terhubung.
 
 ## Keterbatasan
 
 - Status lunas dicatat manual oleh penagih, bukan otomatis.
 - Pengingat dikirim lewat WhatsApp milik penagih sendiri, bukan pengiriman otomatis.
-- Menyimpan nama dan nomor HP anggota; ketentuannya akan dijelaskan di halaman kebijakan privasi.
+- Ketentuan penyimpanan nama dan nomor HP anggota tersedia di [kebijakan privasi](https://tagihin.my.id/kebijakan-privasi).
 - Berjalan di tier gratis Vercel dan Supabase, sehingga tunduk pada batas layanan masing-masing.
 
 ## Tim

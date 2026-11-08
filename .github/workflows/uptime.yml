@@ -1,0 +1,27 @@
+name: TagihIn Uptime
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  public-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check public pages over HTTPS
+        run: |
+          for path in / /kebijakan-privasi; do
+            url="https://tagihin.my.id${path}"
+            status=$(curl --silent --show-error --location --max-redirs 3 \
+              --proto '=https' --proto-redir '=https' --max-time 12 --retry 2 \
+              --output /dev/null --write-out '%{http_code}' "$url")
+            if [ "$status" != 200 ]; then
+              echo "::error::${url} returned HTTP ${status}"
+              exit 1
+            fi
+            echo "${url} returned HTTP ${status}"
+          done

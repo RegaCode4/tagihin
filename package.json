@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/periods.test.mjs"
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -19,6 +19,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
